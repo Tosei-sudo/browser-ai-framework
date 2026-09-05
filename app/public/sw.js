@@ -6,10 +6,15 @@
  *
  * 方針:
  *  - 同一オリジンの GET だけを扱う。**外部への要求は素通しもしない**（論点36）
- *  - アプリ本体（HTML / JS / CSS）は cache-first。閉域では内容が変わらないため
- *  - `models/` は**キャッシュしない**。重みは OPFS に取り込む方が本筋で、
+ *  - **network-first。** 取れたらそれを返し、キャッシュを更新する。
+ *    取れなければキャッシュを返す（オフライン）
+ *  - `models/` はキャッシュしない。重みは OPFS に取り込む方が本筋で、
  *    キャッシュにも置くと同じ12.8MBを二重に持つ（方針6・18）
  *  - 版が変わったら古いキャッシュを捨てる。版は登録時のクエリで受け取る
+ *
+ * cache-first にしない理由: 新しいビルドを配ってもキャッシュ済みの
+ * `index.html` が返り続け、**更新が反映されない**。実際にこの罠を踏んだ。
+ * 閉域でも配信元は同一オリジンの静的ファイルで、取得は速い。
  */
 
 const VERSION = new URL(self.location.href).searchParams.get('v') ?? 'dev';
@@ -44,17 +49,17 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(request);
-      if (cached) return cached;
       try {
         const response = await fetch(request);
-        // 成功した同一オリジンの応答だけ残す。
+        // 成功した同一オリジンの応答でキャッシュを更新する。
         if (response.ok && response.type === 'basic') {
           cache.put(request, response.clone());
         }
         return response;
       } catch (error) {
-        // 配信元に届かず、キャッシュにも無い。ナビゲーションなら入口を返す。
+        // 配信元に届かない。キャッシュがあればそれを返す。
+        const cached = await cache.match(request);
+        if (cached) return cached;
         if (request.mode === 'navigate') {
           const fallback = await cache.match('./index.html');
           if (fallback) return fallback;

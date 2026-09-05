@@ -13,7 +13,7 @@ export const DB_NAME = 'browser-ai-framework';
  * 属性の追加は既定値で吸収できるため、ここを上げるのはストア・インデックスの
  * 追加削除に限る。
  */
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export interface IndexDefinition {
   readonly name: string;
@@ -95,6 +95,16 @@ export const STORE_DEFINITIONS: readonly StoreDefinition[] = [
       { name: 'by_version_split', keyPath: ['dataset_version_id', 'split'] },
       { name: 'by_image', keyPath: 'image_id' },
       { name: 'by_annotation_set', keyPath: 'annotation_set_id' },
+    ],
+  },
+  {
+    // 凍結前の可変メンバーシップ（2026-09-05 追加。スキーマ版2）
+    name: 'dataset_members',
+    keyPath: 'member_id',
+    indexes: [
+      { name: 'by_dataset', keyPath: 'dataset_id' },
+      { name: 'by_image', keyPath: 'image_id' },
+      { name: 'by_dataset_image', keyPath: ['dataset_id', 'image_id'], unique: true },
     ],
   },
   {
@@ -196,19 +206,33 @@ export interface Migration {
   apply(db: IDBDatabase, transaction: IDBTransaction): void;
 }
 
+function createStore(db: IDBDatabase, name: StoreName): void {
+  const definition = STORE_DEFINITIONS.find((store) => store.name === name);
+  if (!definition) throw new Error(`ストア定義がない: ${name}`);
+  const objectStore = db.createObjectStore(definition.name, { keyPath: definition.keyPath });
+  for (const index of definition.indexes) {
+    objectStore.createIndex(index.name, index.keyPath as string | string[], {
+      unique: index.unique ?? false,
+    });
+  }
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   {
     version: 1,
     describe: '初版。20ストアとインデックスを作成する',
     apply(db) {
       for (const store of STORE_DEFINITIONS) {
-        const objectStore = db.createObjectStore(store.name, { keyPath: store.keyPath });
-        for (const index of store.indexes) {
-          objectStore.createIndex(index.name, index.keyPath as string | string[], {
-            unique: index.unique ?? false,
-          });
-        }
+        if (store.name === 'dataset_members') continue; // 版2で追加する
+        createStore(db, store.name);
       }
+    },
+  },
+  {
+    version: 2,
+    describe: 'dataset_members を追加する（凍結前の可変メンバーシップ）',
+    apply(db) {
+      createStore(db, 'dataset_members');
     },
   },
 ];

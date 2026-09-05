@@ -52,14 +52,14 @@ export function LabelSetPanel({
         ),
       );
       setClasses(Object.fromEntries(entries));
-      setBaseModels(
-        await listBaseModels({
-          repositories: ports.repositories,
-          unitOfWork: ports.unitOfWork,
-          blobStore: ports.blobStore,
-          catalog: ports.catalog,
-        }),
-      );
+      const allBase = await listBaseModels({
+        repositories: ports.repositories,
+        unitOfWork: ports.unitOfWork,
+        blobStore: ports.blobStore,
+        catalog: ports.catalog,
+      });
+      // 特徴抽出器はクラスを持たないため、複製元にしない。
+      setBaseModels(allBase.filter((model) => model.task_type === 'object_detection'));
       if (!selected && list[0]) setSelected(list[0].label_set_id);
     })().catch((cause: unknown) => setError(String(cause)));
     // eslint-disable-next-line react-hooks/exhaustive-deps

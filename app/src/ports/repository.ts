@@ -12,6 +12,7 @@ import type {
   AnnotationSet,
   Dataset,
   DatasetItem,
+  DatasetMember,
   DatasetSplit,
   DatasetVersion,
   Detection,
@@ -38,6 +39,7 @@ import type {
   ContentHash,
   DatasetId,
   DatasetItemId,
+  DatasetMemberId,
   DatasetVersionId,
   DerivationId,
   DetectionId,
@@ -131,6 +133,16 @@ export interface DatasetItemRepository extends Repository<DatasetItem, DatasetIt
   countByAnnotationSet(annotationSetId: AnnotationSetId): Promise<number>;
 }
 
+/**
+ * 凍結前の可変メンバーシップ（2026-09-05 追加）。
+ * 凍結すると、この一覧から `DatasetItem` が作られる。
+ */
+export interface DatasetMemberRepository extends Repository<DatasetMember, DatasetMemberId> {
+  listByDataset(datasetId: DatasetId): Promise<DatasetMember[]>;
+  findByImage(datasetId: DatasetId, imageId: ImageId): Promise<DatasetMember | undefined>;
+  countByImage(imageId: ImageId): Promise<number>;
+}
+
 export interface ModelRepository extends Repository<Model, ModelId> {
   /** `by_project`。Base Model は project_id が null のため引けない（04 §4.4） */
   listByProject(projectId: ProjectId): Promise<Model[]>;
@@ -192,6 +204,8 @@ export interface InferenceRepository extends Repository<Inference, InferenceId> 
 
 export interface InferenceTargetRepository extends Repository<InferenceTarget, InferenceTargetId> {
   listByInference(inferenceId: InferenceId): Promise<InferenceTarget[]>;
+  /** `by_image`。その画像に対する推論の履歴（方針12 の起こしで使う） */
+  listByImage(imageId: ImageId): Promise<InferenceTarget[]>;
   /** `by_image`。画像の参照有無の判定（04 §7） */
   countByImage(imageId: ImageId): Promise<number>;
 }
@@ -214,6 +228,7 @@ export interface Repositories {
   readonly datasets: DatasetRepository;
   readonly datasetVersions: DatasetVersionRepository;
   readonly datasetItems: DatasetItemRepository;
+  readonly datasetMembers: DatasetMemberRepository;
   readonly models: ModelRepository;
   readonly modelArtifacts: ModelArtifactRepository;
   readonly modelDerivations: ModelDerivationRepository;

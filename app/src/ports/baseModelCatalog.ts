@@ -14,6 +14,8 @@ export interface BaseModelEntry {
   readonly key: string;
   readonly name: string;
   readonly task_type: TaskType;
+  /** 完成モデルか、学習の土台になるバックボーンか */
+  readonly kind: 'full' | 'backbone';
   readonly format: ModelFormat;
   readonly input_spec: InputSpec;
   /** クラス体系。Base Model は自身のクラス集合を持つ（方針11） */

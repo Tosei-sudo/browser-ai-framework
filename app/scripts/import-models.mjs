@@ -24,7 +24,11 @@ const targetRoot = join(appDir, 'public', 'models');
  * カタログに載せるモデル。**MVP は推論だけなので完成モデル1件**（論点30）。
  * 学習の土台になるバックボーンは M5 で足す。
  */
-const INCLUDE = [{ dir: 'yolov8n_tfjs', key: 'yolov8n', name: 'YOLOv8n (COCO)' }];
+const INCLUDE = [
+  { dir: 'yolov8n_tfjs', key: 'yolov8n', name: 'YOLOv8n (COCO)' },
+  // 転移学習の土台。検出ヘッドを外したバックボーン + ネック（R1 / 06 §7）。
+  { dir: 'yolov8n_backbone_tfjs', key: 'yolov8n-backbone', name: 'YOLOv8n バックボーン（学習用）' },
+];
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -69,10 +73,12 @@ function importModel({ dir, key, name }) {
   return {
     key,
     name,
-    task_type: metadata.task_type,
+    task_type: metadata.kind === 'backbone' ? 'feature_extraction' : metadata.task_type,
+    kind: metadata.kind,
     format: metadata.format,
     input_spec: metadata.input_spec,
-    classes: metadata.classes,
+    // 特徴抽出器はクラスを持たない。空のクラス体系として登録される。
+    classes: metadata.kind === 'backbone' ? [] : metadata.classes,
     topology_path: `models/${key}/model.json`,
     weights_path: `models/${key}/weights.bin`,
     byte_size: weights.length,

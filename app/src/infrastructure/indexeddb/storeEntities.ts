@@ -10,6 +10,7 @@ import type {
   AnnotationSet,
   Dataset,
   DatasetItem,
+  DatasetMember,
   DatasetVersion,
   Detection,
   Evaluation,
@@ -39,6 +40,7 @@ export interface StoreEntityMap {
   datasets: Dataset;
   dataset_versions: DatasetVersion;
   dataset_items: DatasetItem;
+  dataset_members: DatasetMember;
   models: Model;
   model_artifacts: ModelArtifact;
   model_derivations: ModelDerivation;

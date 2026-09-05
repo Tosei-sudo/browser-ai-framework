@@ -192,6 +192,22 @@ export function createRepositories(provider: StoreProvider): Repositories {
       },
     },
 
+    datasetMembers: {
+      ...createBaseRepository(provider, 'dataset_members', identityCodec()),
+      listByDataset(datasetId) {
+        return listByIndex(provider, 'dataset_members', 'by_dataset', identityCodec(), datasetId);
+      },
+      findByImage(datasetId, imageId) {
+        return findByIndex(provider, 'dataset_members', 'by_dataset_image', identityCodec(), [
+          datasetId,
+          imageId,
+        ]);
+      },
+      countByImage(imageId) {
+        return countByIndex(provider, 'dataset_members', 'by_image', imageId);
+      },
+    },
+
     models: {
       ...createBaseRepository(provider, 'models', identityCodec()),
       listByProject(projectId) {
@@ -342,6 +358,9 @@ export function createRepositories(provider: StoreProvider): Repositories {
           identityCodec(),
           inferenceId,
         );
+      },
+      listByImage(imageId) {
+        return listByIndex(provider, 'inference_targets', 'by_image', identityCodec(), imageId);
       },
       countByImage(imageId) {
         return countByIndex(provider, 'inference_targets', 'by_image', imageId);

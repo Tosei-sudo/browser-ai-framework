@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { runStartup, type StartupResult } from '../application/startupService';
-import type { InferenceRunner } from '../application/inferenceManager';
+import type { WorkerRunners } from '@infrastructure/tfjs/workerRunner';
 import type { Project } from '@domain/index';
 import { createStoragePorts, type StoragePorts } from '@infrastructure/storage';
 import { createWorkerRunner } from '@infrastructure/tfjs/workerRunner';
@@ -21,6 +21,10 @@ import { HistoryPanel } from './HistoryPanel';
 import { ProjectPanel } from './ProjectPanel';
 import { LabelSetPanel } from './LabelSetPanel';
 import { ImagePanel } from './ImagePanel';
+import { AnnotationPanel } from './AnnotationPanel';
+import { DatasetPanel } from './DatasetPanel';
+import { TrainingPanel } from './TrainingPanel';
+import { EvaluationPanel } from './EvaluationPanel';
 
 type BootState =
   | { readonly kind: 'booting' }
@@ -32,7 +36,7 @@ type WorkerState = { readonly backend: string } | { readonly error: string } | n
 export function App(): React.ReactElement {
   const [boot, setBoot] = useState<BootState>({ kind: 'booting' });
   const [ports, setPorts] = useState<StoragePorts | null>(null);
-  const [runner, setRunner] = useState<InferenceRunner | null>(null);
+  const [runners, setRunners] = useState<WorkerRunners | null>(null);
   const [worker, setWorker] = useState<WorkerState>(null);
   const [requesting, setRequesting] = useState(false);
   const [historyToken, setHistoryToken] = useState(0);
@@ -73,7 +77,7 @@ export function App(): React.ReactElement {
   useEffect(() => {
     if (!ports) return;
     const client = new MlWorkerClient();
-    setRunner(createWorkerRunner(client, ports.catalog));
+    setRunners(createWorkerRunner(client, ports.catalog, ports.repositories));
     client
       .request((jobId) => ({ type: 'init', jobId }))
       .then((response) => {
@@ -114,7 +118,7 @@ export function App(): React.ReactElement {
   return (
     <main>
       <h1>Browser AI Framework</h1>
-      <p className="lead">MVP（推論 + 履歴、論点30）。プロジェクト・クラス体系・入出力まで。</p>
+      <p className="lead">推論・アノテーション・データセット・転移学習・評価まで（M5）。</p>
 
       {boot.kind === 'booting' && <p>起動中…</p>}
       {boot.kind === 'failed' && (
@@ -190,12 +194,12 @@ export function App(): React.ReactElement {
             />
           )}
 
-          {runner && project && (
+          {runners && project && (
             <>
               <InferencePanel
                 ports={boot.ports}
                 project={project}
-                runner={runner}
+                runner={runners.inference}
                 readOnly={boot.startup.readOnly}
                 onChanged={refreshStorage}
                 reloadToken={historyToken}
@@ -210,7 +214,36 @@ export function App(): React.ReactElement {
               <HistoryPanel
                 ports={boot.ports}
                 project={project}
-                runner={runner}
+                runner={runners.inference}
+                readOnly={boot.startup.readOnly}
+                reloadToken={historyToken}
+              />
+              <AnnotationPanel
+                ports={boot.ports}
+                project={project}
+                readOnly={boot.startup.readOnly}
+                reloadToken={historyToken}
+                onChanged={refreshStorage}
+              />
+              <DatasetPanel
+                ports={boot.ports}
+                project={project}
+                readOnly={boot.startup.readOnly}
+                reloadToken={historyToken}
+                onChanged={refreshStorage}
+              />
+              <TrainingPanel
+                ports={boot.ports}
+                project={project}
+                runners={runners}
+                readOnly={boot.startup.readOnly}
+                reloadToken={historyToken}
+                onChanged={refreshStorage}
+              />
+              <EvaluationPanel
+                ports={boot.ports}
+                project={project}
+                runners={runners}
                 readOnly={boot.startup.readOnly}
                 reloadToken={historyToken}
               />

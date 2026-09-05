@@ -11,7 +11,13 @@ import type {
 
 export type ModelOrigin = 'builtin' | 'user_trained' | 'imported';
 
-export type TaskType = 'object_detection';
+/**
+ * モデルの役割。
+ *
+ * `feature_extraction` は検出ヘッドを外したバックボーン（2026-09-05 追加）。
+ * 単体では推論に使えないが、転移学習の土台として系譜の親になる（方針7）。
+ */
+export type TaskType = 'object_detection' | 'feature_extraction';
 
 /** 前処理仕様（方針15）。実行時のスレッショルドはここに含めない。 */
 export interface InputSpec {
@@ -46,8 +52,14 @@ export interface Model {
   readonly created_at: IsoDateTime;
 }
 
-/** 論点32でモデル形式は当面1つに固定する。 */
-export type ModelFormat = 'tfjs_graph_model';
+/**
+ * 重みの形式（論点32）。
+ *
+ * - `tfjs_graph_model`: 変換して持ち込んだモデル（推論専用）
+ * - `baif_yolo_head_v1`: ブラウザ内で学習した検出ヘッド（2026-09-05 追加）。
+ *   バックボーンは持たず、系譜の親から辿る
+ */
+export type ModelFormat = 'tfjs_graph_model' | 'baif_yolo_head_v1';
 
 /**
  * ModelArtifact — 重みの実体のメタ（方針6）。

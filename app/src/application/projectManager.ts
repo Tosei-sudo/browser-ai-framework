@@ -92,6 +92,9 @@ export async function collectCascade(deps: ProjectManagerDeps, projectId: Projec
   const datasetVersions = flat(
     await Promise.all(datasets.map((dataset) => repos.datasetVersions.listByDataset(dataset.dataset_id))),
   );
+  const datasetMembers = flat(
+    await Promise.all(datasets.map((dataset) => repos.datasetMembers.listByDataset(dataset.dataset_id))),
+  );
   const datasetItems = flat(
     await Promise.all(
       datasetVersions.flatMap((version) =>
@@ -135,6 +138,7 @@ export async function collectCascade(deps: ProjectManagerDeps, projectId: Projec
     datasets,
     datasetVersions,
     datasetItems,
+    datasetMembers,
     models,
     derivations,
     trainings,
@@ -177,6 +181,7 @@ export async function deleteProject(
       'model_artifacts',
       'models',
       'dataset_items',
+      'dataset_members',
       'dataset_versions',
       'datasets',
       'annotation_objects',
@@ -199,6 +204,7 @@ export async function deleteProject(
       for (const id of artifactIds) await tx.modelArtifacts.delete(id);
       for (const row of cascade.models) await tx.models.delete(row.model_id);
       for (const row of cascade.datasetItems) await tx.datasetItems.delete(row.item_id);
+      for (const row of cascade.datasetMembers) await tx.datasetMembers.delete(row.member_id);
       for (const row of cascade.datasetVersions) await tx.datasetVersions.delete(row.dataset_version_id);
       for (const row of cascade.datasets) await tx.datasets.delete(row.dataset_id);
       for (const row of cascade.annotationObjects) await tx.annotationObjects.delete(row.object_id);

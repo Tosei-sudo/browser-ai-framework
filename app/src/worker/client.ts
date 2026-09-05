@@ -2,17 +2,17 @@
  * ML Worker のクライアント（メインスレッド側）。
  *
  * Application Layer はここを通してのみ Worker に依頼する。
- * ジョブは投入順に1件ずつ実行され、複数の依頼が重なっても Worker 側は
- * 直列に処理する（論点19）。
+ * ジョブは投入順に1件ずつ実行される（論点19）。
  *
- * Worker のバンドルは Vite の `new Worker(new URL(...), { type: 'module' })`
- * 形式で行う。外部URLを渡さないこと（論点36・39）。
+ * 学習のように途中経過を返すジョブがあるため、**進捗の通知を受け取る口**を
+ * 持たせてある。中断は専用のメッセージで、キューに並ばず即座に届く。
  */
 import type { JobId, JobRequest, JobResponse } from './protocol';
 
 type Pending = {
   readonly resolve: (response: JobResponse) => void;
   readonly reject: (error: Error) => void;
+  readonly onProgress?: (response: JobResponse) => void;
 };
 
 export class MlWorkerClient {
@@ -24,10 +24,12 @@ export class MlWorkerClient {
     this.#worker = new Worker(new URL('./mlWorker.ts', import.meta.url), { type: 'module' });
     this.#worker.addEventListener('message', (event: MessageEvent<JobResponse>) => {
       const response = event.data;
-      // progress は完了ではないため、待っているジョブを解決しない。
-      if (response.type === 'progress') return;
       const pending = this.#pending.get(response.jobId);
       if (!pending) return;
+      if (response.type === 'progress') {
+        pending.onProgress?.(response);
+        return;
+      }
       this.#pending.delete(response.jobId);
       if (response.type === 'failed') {
         pending.reject(new Error(response.message));
@@ -38,13 +40,22 @@ export class MlWorkerClient {
   }
 
   /** ジョブを投入し、対応する応答を待つ。 */
-  request(build: (jobId: JobId) => JobRequest, transfer: Transferable[] = []): Promise<JobResponse> {
+  request(
+    build: (jobId: JobId) => JobRequest,
+    transfer: Transferable[] = [],
+    onProgress?: (response: JobResponse) => void,
+  ): Promise<JobResponse> {
     const jobId = `job-${++this.#seq}`;
     const message = build(jobId);
     return new Promise<JobResponse>((resolve, reject) => {
-      this.#pending.set(jobId, { resolve, reject });
+      this.#pending.set(jobId, onProgress ? { resolve, reject, onProgress } : { resolve, reject });
       this.#worker.postMessage(message, transfer);
     });
+  }
+
+  /** 実行中のジョブに中断を要求する。Worker 側はキューに並べず即座に受ける。 */
+  cancel(): void {
+    this.#worker.postMessage({ type: 'cancel', jobId: 'cancel' } satisfies JobRequest);
   }
 
   terminate(): void {

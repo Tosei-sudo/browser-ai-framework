@@ -103,3 +103,66 @@ export function createPostprocessor(): Postprocessor {
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
+
+/**
+ * 学習したヘッドの出力を検出結果へ変換する（M5）。
+ *
+ * 変換して持ち込んだモデルと違い、こちらは**すでに xyxy にデコード済み**の
+ * ボックスとクラスのロジットを受け取る。NMS と座標の戻しだけを行う。
+ */
+export async function finalizeDetections(
+  boxesXYXY: tf.Tensor2D,
+  clsLogits: tf.Tensor2D,
+  input: ModelInput,
+  params: DetectionParams,
+): Promise<DecodedDetection[]> {
+  const { boxes, scores, classes } = tf.tidy(() => {
+    const probability = tf.sigmoid(clsLogits);
+    const x1 = tf.slice(boxesXYXY, [0, 0], [-1, 1]);
+    const y1 = tf.slice(boxesXYXY, [0, 1], [-1, 1]);
+    const x2 = tf.slice(boxesXYXY, [0, 2], [-1, 1]);
+    const y2 = tf.slice(boxesXYXY, [0, 3], [-1, 1]);
+    return {
+      // NMS は [y1, x1, y2, x2] を取る。
+      boxes: tf.concat([y1, x1, y2, x2], 1) as tf.Tensor2D,
+      scores: tf.max(probability, 1) as tf.Tensor1D,
+      classes: tf.argMax(probability, 1) as tf.Tensor1D,
+    };
+  });
+
+  const kept = await tf.image.nonMaxSuppressionAsync(
+    boxes,
+    scores,
+    params.maxDetections,
+    params.iouThreshold,
+    params.confThreshold,
+  );
+  const [keptIndexes, boxData, scoreData, classData] = await Promise.all([
+    kept.data() as Promise<Int32Array>,
+    boxes.data() as Promise<Float32Array>,
+    scores.data() as Promise<Float32Array>,
+    classes.data() as Promise<Int32Array>,
+  ]);
+  tf.dispose([boxes, scores, classes, kept]);
+
+  const { scale, padX, padY, sourceWidth, sourceHeight } = input.transform;
+  const detections: DecodedDetection[] = [];
+  for (const index of keptIndexes) {
+    const base = index * 4;
+    const top = ((boxData[base] ?? 0) - padY) / scale;
+    const left = ((boxData[base + 1] ?? 0) - padX) / scale;
+    const bottom = ((boxData[base + 2] ?? 0) - padY) / scale;
+    const right = ((boxData[base + 3] ?? 0) - padX) / scale;
+    detections.push({
+      classIndex: classData[index] ?? 0,
+      confidence: scoreData[index] ?? 0,
+      bbox: {
+        x: clamp(left, 0, sourceWidth),
+        y: clamp(top, 0, sourceHeight),
+        w: clamp(right - left, 0, sourceWidth),
+        h: clamp(bottom - top, 0, sourceHeight),
+      },
+    });
+  }
+  return detections.sort((a, b) => b.confidence - a.confidence);
+}

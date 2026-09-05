@@ -169,7 +169,7 @@ export async function evictWeights(deps: ModelManagerDeps, modelId: ModelId): Pr
 }
 
 /** カタログの項目と登録済みモデルを `key` 由来の ID で突き合わせる。 */
-async function findEntryFor(
+export async function findEntryFor(
   entries: readonly BaseModelEntry[],
   modelId: ModelId,
 ): Promise<BaseModelEntry | undefined> {

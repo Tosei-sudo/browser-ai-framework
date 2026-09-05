@@ -2,17 +2,21 @@
  * UI Layer（03 §4）。React は表示層に閉じ込め、ユースケースは
  * Application Layer に置く（論点35）。
  *
- * M1 の時点では、起動処理（StartupService）の結果とストレージの状態を出す。
- * 推論の画面は M3 で作る。
+ * M3 までの範囲：起動処理の結果、Base Model の取り込み、推論、履歴。
+ * MVP のスコープはここまで（論点30）。
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { runStartup, type StartupResult } from '../application/startupService';
+import type { InferenceRunner } from '../application/inferenceManager';
 import { createStoragePorts, type StoragePorts } from '@infrastructure/storage';
+import { createWorkerRunner } from '@infrastructure/tfjs/workerRunner';
 import { MlWorkerClient } from '../worker/client';
 import { STORE_NAMES } from '@ports/stores';
 import { PersistenceNotice, ReadOnlyNotice, StorageStatus } from './StorageNotices';
 import { StorageSelfCheck } from './StorageSelfCheck';
 import { BaseModels } from './BaseModels';
+import { InferencePanel } from './InferencePanel';
+import { HistoryPanel } from './HistoryPanel';
 
 type BootState =
   | { readonly kind: 'booting' }
@@ -23,22 +27,27 @@ type WorkerState = { readonly backend: string } | { readonly error: string } | n
 
 export function App(): React.ReactElement {
   const [boot, setBoot] = useState<BootState>({ kind: 'booting' });
+  const [ports, setPorts] = useState<StoragePorts | null>(null);
+  const [runner, setRunner] = useState<InferenceRunner | null>(null);
   const [worker, setWorker] = useState<WorkerState>(null);
   const [requesting, setRequesting] = useState(false);
+  const [historyToken, setHistoryToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     createStoragePorts()
-      .then(async (ports) => {
+      .then(async (created) => {
         const startup = await runStartup({
-          repositories: ports.repositories,
-          unitOfWork: ports.unitOfWork,
-          blobStore: ports.blobStore,
-          storagePolicy: ports.storagePolicy,
-          catalog: ports.catalog,
-          readOnlyReason: ports.readOnlyReason,
+          repositories: created.repositories,
+          unitOfWork: created.unitOfWork,
+          blobStore: created.blobStore,
+          storagePolicy: created.storagePolicy,
+          catalog: created.catalog,
+          readOnlyReason: created.readOnlyReason,
         });
-        if (!cancelled) setBoot({ kind: 'ready', ports, startup });
+        if (cancelled) return;
+        setPorts(created);
+        setBoot({ kind: 'ready', ports: created, startup });
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -53,43 +62,52 @@ export function App(): React.ReactElement {
     };
   }, []);
 
+  // ML Worker はセッション中1つだけ持つ（論点19）。
   useEffect(() => {
+    if (!ports) return;
     const client = new MlWorkerClient();
+    setRunner(createWorkerRunner(client, ports.catalog));
     client
       .request((jobId) => ({ type: 'init', jobId }))
       .then((response) => {
-        setWorker(response.type === 'ready' ? { backend: response.backend } : { error: '想定しない応答' });
+        setWorker(
+          response.type === 'ready' ? { backend: response.backend } : { error: '想定しない応答' },
+        );
       })
       .catch((error: unknown) => {
         setWorker({ error: error instanceof Error ? error.message : String(error) });
       });
     return () => client.terminate();
-  }, []);
+  }, [ports]);
 
-  const refreshStorage = (): void => {
-    if (boot.kind !== 'ready') return;
-    boot.ports.storagePolicy
-      .estimate()
-      .then((storage) => setBoot({ ...boot, startup: { ...boot.startup, storage } }))
-      .catch(() => undefined);
-  };
+  const refreshStorage = useCallback((): void => {
+    setBoot((current) => {
+      if (current.kind !== 'ready') return current;
+      void current.ports.storagePolicy.estimate().then((storage) => {
+        setBoot((latest) =>
+          latest.kind === 'ready'
+            ? { ...latest, startup: { ...latest.startup, storage } }
+            : latest,
+        );
+      });
+      return current;
+    });
+    setHistoryToken((token) => token + 1);
+  }, []);
 
   const requestPersistence = (): void => {
     if (boot.kind !== 'ready') return;
     setRequesting(true);
     boot.ports.storagePolicy
       .requestPersistence()
-      .then(async () => {
-        const storage = await boot.ports.storagePolicy.estimate();
-        setBoot({ ...boot, startup: { ...boot.startup, storage } });
-      })
+      .then(() => refreshStorage())
       .finally(() => setRequesting(false));
   };
 
   return (
     <main>
       <h1>Browser AI Framework</h1>
-      <p className="lead">M2（Base Model の配信と読み込み）。推論は M3 で実装する。</p>
+      <p className="lead">M3（推論）。MVP のスコープはここまで（論点30）。</p>
 
       {boot.kind === 'booting' && <p>起動中…</p>}
       {boot.kind === 'failed' && (
@@ -138,8 +156,6 @@ export function App(): React.ReactElement {
               {worker !== null && 'backend' in worker && `起動済み（backend: ${worker.backend}）`}
               {worker !== null && 'error' in worker && `失敗: ${worker.error}`}
             </dd>
-            <dt>OPFS</dt>
-            <dd>{'storage' in navigator && 'getDirectory' in navigator.storage ? '利用可能' : '利用不可'}</dd>
           </dl>
 
           <BaseModels
@@ -147,6 +163,26 @@ export function App(): React.ReactElement {
             readOnly={boot.startup.readOnly}
             onStorageChanged={refreshStorage}
           />
+
+          {runner && (
+            <>
+              <InferencePanel
+                ports={boot.ports}
+                project={boot.startup.project}
+                runner={runner}
+                readOnly={boot.startup.readOnly}
+                onChanged={refreshStorage}
+                reloadToken={historyToken}
+              />
+              <HistoryPanel
+                ports={boot.ports}
+                project={boot.startup.project}
+                runner={runner}
+                readOnly={boot.startup.readOnly}
+                reloadToken={historyToken}
+              />
+            </>
+          )}
 
           <StorageSelfCheck
             ports={boot.ports}

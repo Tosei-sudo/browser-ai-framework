@@ -30,6 +30,13 @@ const ALLOWED = [
   // React の最小化エラーメッセージに埋め込まれた解説ページ。
   // 文字列として出力されるだけで、アプリが取得することはない。
   'https://react.dev/errors/',
+  // TensorFlow.js のエラーメッセージ、およびシェーダ内のコメント（出典の URL）。
+  // いずれも文字列・コメントで、実行時に取得しないことを dist の中身で確認済み。
+  'https://developer.mozilla.org/',
+  'https://www.shadertoy.com/',
+  'https://arxiv.org/',
+  'https://en.wikipedia.org/',
+  'https://github.com/tensorflow/tfjs',
 ];
 
 /** 開発サーバーのURL。成果物の実行には影響しない。 */

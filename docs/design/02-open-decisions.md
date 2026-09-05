@@ -1324,7 +1324,7 @@ Base Model の同梱方式と初回ロードサイズ、ビルド構成、対応
 
 ### 影響範囲
 
-Domain Layer の型定義、IndexedDB の19ストアのインデックス定義、`StartupService` の起動処理、M4 の作業範囲。
+Domain Layer の型定義、IndexedDB の20ストアのインデックス定義、`StartupService` の起動処理、M4 の作業範囲。
 
 ### 決定
 

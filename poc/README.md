@@ -27,6 +27,13 @@ cd datasets && unzip -q raccoon.zip && cd ..
 
 TensorFlow.js 側の重み（coco-ssd / mobilenet）は実行時に `storage.googleapis.com` から取得されるため、事前準備は不要。
 
+```bash
+# R1（/p6-yolo/）で使う YOLOv8 の変換済みモデル。tools/model-conversion で作る。
+docker build -t browser-ai-r1 ../tools/model-conversion
+MSYS_NO_PATHCONV=1 docker run --rm -v "/c/…/tools/model-conversion/out:/out" browser-ai-r1 --out /out
+cp -r ../tools/model-conversion/out/yolov8n_tfjs ../tools/model-conversion/out/yolov8n_backbone_tfjs models/
+```
+
 ## 実行方法
 
 ```bash
@@ -43,6 +50,7 @@ node poc/serve.mjs --isolated   # COOP / COEP あり（crossOriginIsolated = tru
 | P4 | `/p1-inference/` | WebGPU / WASM の速度差、COOP・COEP の要否 | 完了（`--isolated` の有無で2回測る） |
 | P2 | `/p2-training/` | ブラウザ内の転移学習が動くか、数百枚の所要時間 | 完了 |
 | P3 | `/p2-training/` | 検出ヘッドを差し替えてクラス数を変えられるか | 完了（P2 と同時に確認） |
+| R1 | `/p6-yolo/` | YOLOv8 の変換結果で推論でき、ヘッドだけを学習できるか | 完了 |
 
 ## ディレクトリ
 
@@ -56,6 +64,10 @@ poc/
 │   ├── main.js          メインスレッド側（createWritable）と全体の進行
 │   └── opfs-worker.js   Worker 側（createSyncAccessHandle）
 ├── datasets/            データセット（gitignore 済み。上の手順で取得する）
+├── p6-yolo/             R1（YOLOv8 の変換結果の確認とヘッドだけの学習）
+│   ├── index.html
+│   ├── main.js
+│   └── r1-worker.js
 ├── p1-inference/        P1 / P4
     ├── index.html
     ├── main.js          画像の用意と結果表示

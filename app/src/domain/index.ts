@@ -26,6 +26,7 @@ export type {
   DatasetSplit,
   SplitPolicy,
 } from './entities/dataset';
+export type { DatasetMember } from './entities/datasetMember';
 export type {
   Model,
   ModelArtifact,

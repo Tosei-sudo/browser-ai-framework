@@ -6,6 +6,9 @@
  * WebGL への退避は保険であって主役ではない。
  */
 import * as tf from '@tensorflow/tfjs-core';
+// tfjs-core だけを使う構成では、勾配は既定で登録されない（バンドルを小さく保つため）。
+// 学習に必要なので明示的に登録する。umbrella の @tensorflow/tfjs はこれを内部でやっている。
+import '@tensorflow/tfjs-core/dist/register_all_gradients';
 import '@tensorflow/tfjs-backend-webgl';
 import '@tensorflow/tfjs-backend-webgpu';
 import type { Backend } from '@ports/mlRuntime';

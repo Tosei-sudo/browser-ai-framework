@@ -123,6 +123,7 @@ OPFS
 | `datasets` | `dataset_id` | `by_project` | 一覧 |
 | `dataset_versions` | `dataset_version_id` | `[dataset_id, version_no]` | 版一覧・最新版 |
 | `dataset_items` | `item_id` | `[dataset_version_id, split]`<br>`by_image`<br>`by_annotation_set` | 学習時の train / val / test 取り出し<br>画像の参照有無の判定<br>アノテーション版の参照有無の判定 |
+| `dataset_members` | `member_id` | `by_dataset`<br>`by_image`<br>`[dataset_id, image_id]` | 凍結前の可変メンバーシップ（2026-09-05 追加。**スキーマ版2**） |
 
 `by_image` は削除可否の判定に使う。ある画像が `dataset_items` から参照されていれば、実体を物理削除してはいけない（§7）。
 
@@ -159,6 +160,7 @@ OPFS
 - `bbox` は `{x, y, w, h}` のオブジェクトで保持する。ピクセル座標か正規化座標かは `bbox_format` に持つ（方針5）。
 - `hyperparameters` / `input_spec` / `label_mapping` は構造が変わりうるため、インデックスを張らない自由形式のオブジェクトとして保持する。検索対象にしない。
 - `Detection` は1回の推論で数十件生まれる。`inference_targets` にまとめて埋め込む案もあるが、`by_label_class` での横断検索（「このクラスが検出された推論を探す」）ができなくなるため、独立ストアにする。
+- **ストアは21件になった**（2026-09-05）。`dataset_members` の追加はスキーマ版2の移行関数で行い、論点28で決めた「移行関数の積み上げ」を実際に使った初めての例。
 - **`null` は IndexedDB のキーにできない。** `Image.deleted_at` は未削除のとき `null` だが、そのままだと `[project_id, deleted_at]` に載らず、「削除済みを除いた一覧」がそもそも引けない。**永続化層で未削除を空文字に変換する**（真偽値の `pinned` を 0 / 1 にするのと同じ扱い。ERモデル上の型は変えない）。索引に載せたくない `null`（Base Model の `project_id`、`AnnotationSet.origin_target_id` など）は変換せず、載らないことをそのまま利用する。
 
 ## 6. トランザクション境界

@@ -75,6 +75,7 @@ export async function exportProject(
     datasets: cascade.datasets as unknown as Record<string, unknown>[],
     dataset_versions: cascade.datasetVersions as unknown as Record<string, unknown>[],
     dataset_items: cascade.datasetItems as unknown as Record<string, unknown>[],
+    dataset_members: cascade.datasetMembers as unknown as Record<string, unknown>[],
     models: cascade.models as unknown as Record<string, unknown>[],
     model_artifacts: modelArtifacts as unknown as Record<string, unknown>[],
     model_derivations: cascade.derivations as unknown as Record<string, unknown>[],

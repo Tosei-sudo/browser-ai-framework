@@ -129,6 +129,7 @@ const REPOSITORY_BY_STORE: Record<
   datasets: (r) => r.datasets,
   dataset_versions: (r) => r.datasetVersions,
   dataset_items: (r) => r.datasetItems,
+  dataset_members: (r) => r.datasetMembers,
   models: (r) => r.models,
   model_artifacts: (r) => r.modelArtifacts,
   model_derivations: (r) => r.modelDerivations,

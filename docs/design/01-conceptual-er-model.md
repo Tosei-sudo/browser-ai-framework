@@ -307,6 +307,21 @@ description
 created_at / updated_at
 ```
 
+#### DatasetMember
+
+**2026-09-05 追加。** `Dataset` を「可変の作業領域」と定義した（方針2）が、
+**凍結前の中身を持つ場所が定義されていなかった。** `DatasetItem` は凍結後の
+`DatasetVersion` に属するため、出し入れを表せない。ここを埋める。
+
+```text
+member_id
+dataset_id
+image_id
+added_at
+```
+
+凍結すると、この一覧から `DatasetItem` が作られる。
+
 #### DatasetVersion
 
 学習を開始した時点で切り出す不変スナップショット。`Training` が参照するのは `Dataset` ではなく必ずこちら。

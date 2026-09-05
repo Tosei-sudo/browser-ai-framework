@@ -42,6 +42,7 @@ export function InferencePanel({
   reloadToken: number;
 }): React.ReactElement {
   const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState<Model['model_id'] | null>(null);
   const [rows, setRows] = useState<ResultRow[]>([]);
   const [selected, setSelected] = useState(0);
   const [classes, setClasses] = useState<ReadonlyMap<LabelClassId, LabelClass>>(new Map());
@@ -61,15 +62,33 @@ export function InferencePanel({
   };
 
   const reloadModels = useCallback(() => {
-    listBaseModels(deps)
-      .then(setModels)
-      .catch((cause: unknown) => setError(String(cause)));
+    void (async () => {
+      // カタログの完成モデルと、このプロジェクトで学習したモデルの両方から選ぶ。
+      const [builtin, projectModels] = await Promise.all([
+        listBaseModels(deps),
+        ports.repositories.models.listByProject(project.project_id),
+      ]);
+      const usable = [...projectModels, ...builtin].filter(
+        (model) => model.task_type === 'object_detection',
+      );
+      setModels(usable);
+      setSelectedModel((current) => {
+        const stillThere = usable.find((model) => model.model_id === current);
+        return (
+          stillThere?.model_id ??
+          usable.find((model) => model.artifact_status === 'present')?.model_id ??
+          null
+        );
+      });
+    })().catch((cause: unknown) => setError(String(cause)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ports]);
+  }, [ports, project]);
 
   useEffect(reloadModels, [reloadModels, reloadToken]);
 
-  const ready = models.find((model) => model.artifact_status === 'present');
+  const ready = models.find(
+    (model) => model.model_id === selectedModel && model.artifact_status === 'present',
+  );
 
   const onFiles = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const files = [...(event.target.files ?? [])];
@@ -141,9 +160,28 @@ export function InferencePanel({
 
       {!ready && (
         <p className="notice warn">
-          重みを取り込んだ Base Model がない。上の「重みを取り込む」を先に実行すること。
+          重みのあるモデルが選べていない。Base Model の重みを取り込むか、
+          学習したモデルを選ぶこと。
         </p>
       )}
+
+      <div className="row">
+        <span>
+          モデル{' '}
+          <select
+            value={selectedModel ?? ''}
+            onChange={(event) => setSelectedModel(event.target.value as Model['model_id'])}
+            disabled={busy !== null}
+          >
+            {models.map((model) => (
+              <option key={model.model_id} value={model.model_id}>
+                {model.name}
+                {model.artifact_status === 'present' ? '' : '（重みなし）'}
+              </option>
+            ))}
+          </select>
+        </span>
+      </div>
 
       <div className="row">
         <span>

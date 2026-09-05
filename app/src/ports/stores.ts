@@ -1,5 +1,5 @@
 /**
- * 永続化するストアの名前（04 §4 の20ストア）。
+ * 永続化するストアの名前（04 §4 の21ストア）。
  *
  * トランザクション境界（04 §6.3）はこの名前の集合で指定する。
  */
@@ -14,6 +14,7 @@ export const STORE_NAMES = [
   'datasets',
   'dataset_versions',
   'dataset_items',
+  'dataset_members',
   'models',
   'model_artifacts',
   'model_derivations',

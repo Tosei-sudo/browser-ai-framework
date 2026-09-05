@@ -177,3 +177,29 @@ export async function deleteClass(
     }
   });
 }
+
+/**
+ * そのプロジェクトで使えるクラス体系。
+ *
+ * プロジェクト内のものに加えて、**Base Model のグローバルな体系**も含める
+ * （方針11 の例外）。学習の教師データが Base Model のクラスで付いていることは
+ * 普通にあるため、データセットやアノテーションでも選べる必要がある。
+ */
+export async function listUsableLabelSets(
+  deps: LabelSetManagerDeps,
+  projectId: ProjectId,
+): Promise<LabelSet[]> {
+  const own = await deps.repositories.labelSets.listByProject(projectId);
+  const builtin = await deps.repositories.models.listBuiltin();
+  const globalIds = [
+    ...new Set(
+      builtin
+        .filter((model) => model.task_type === 'object_detection')
+        .map((model) => model.label_set_id),
+    ),
+  ];
+  const globals = (await deps.repositories.labelSets.getMany(globalIds)).filter(
+    (set) => set.project_id === null,
+  );
+  return [...own, ...globals];
+}

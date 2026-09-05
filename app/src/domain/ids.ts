@@ -20,6 +20,7 @@ export type LabelClassId = Branded<'LabelClassId'>;
 export type DatasetId = Branded<'DatasetId'>;
 export type DatasetVersionId = Branded<'DatasetVersionId'>;
 export type DatasetItemId = Branded<'DatasetItemId'>;
+export type DatasetMemberId = Branded<'DatasetMemberId'>;
 export type ModelId = Branded<'ModelId'>;
 export type ArtifactId = Branded<'ArtifactId'>;
 export type DerivationId = Branded<'DerivationId'>;

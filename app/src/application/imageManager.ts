@@ -81,3 +81,46 @@ export async function loadImageBitmap(
   const blobMeta = await deps.repositories.imageBlobs.get(image.blob_id);
   return createImageBitmap(new Blob([bytes], { type: blobMeta?.mime_type ?? 'image/png' }));
 }
+
+/** プロジェクト内の生きている画像（方針16の論理削除を除く）。 */
+export async function listImages(
+  deps: ImageManagerDeps,
+  projectId: ProjectId,
+): Promise<Image[]> {
+  return deps.repositories.images.listAlive(projectId);
+}
+
+/**
+ * 画像を論理削除する（方針16）。
+ *
+ * **履歴（`InferenceTarget` / `Detection`）は残す。** 消してしまうと
+ * 「いつ何を検出したか」の記録が失われる。実体は他から参照されていなければ
+ * 物理削除してよいが、推論履歴が参照している間は残す（04 §7）。
+ */
+export async function deleteImage(
+  deps: ImageManagerDeps,
+  imageId: import('@domain/ids').ImageId,
+): Promise<{ readonly blobRemoved: boolean }> {
+  const image = await deps.repositories.images.get(imageId);
+  if (!image || image.deleted_at !== null) return { blobRemoved: false };
+
+  await deps.unitOfWork.run(['images'], 'readwrite', async (repos) => {
+    await repos.images.put({ ...image, deleted_at: now() });
+  });
+
+  // 実体を消してよいのは、データセットからも推論履歴からも参照されていないとき。
+  const inDatasets = await deps.repositories.datasetItems.countByImage(imageId);
+  const inInferences = await deps.repositories.inferenceTargets.countByImage(imageId);
+  if (inDatasets > 0 || inInferences > 0) return { blobRemoved: false };
+
+  const sharing = (await deps.repositories.images.listByContentHash(image.content_hash)).filter(
+    (other) => other.blob_id === image.blob_id && other.image_id !== imageId,
+  );
+  if (sharing.length > 0) return { blobRemoved: false };
+
+  await deps.unitOfWork.run(['image_blobs'], 'readwrite', async (repos) => {
+    await repos.imageBlobs.delete(image.blob_id);
+  });
+  await deps.blobStore.delete({ kind: 'image', id: image.blob_id });
+  return { blobRemoved: true };
+}

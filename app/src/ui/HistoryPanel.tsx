@@ -1,12 +1,15 @@
 /**
- * 推論履歴の一覧（方針9・14）。
+ * 推論履歴の一覧と詳細（方針9・14 / 持ち越し事項#7）。
  *
  * `[project_id, executed_at]` の降順で引く。上限件数を超えたぶんは
  * `RetentionService` が古い順に消すが、**`pinned` は残る**。
+ *
+ * 画像を削除しても履歴は残る（方針16）。詳細では
+ * **「画像は削除済み」と明示する**。結果だけが残っていることを隠さない。
  */
 import { useCallback, useEffect, useState } from 'react';
-import type { Inference, Project } from '@domain/index';
-import type { InferenceId } from '@domain/ids';
+import type { Detection, Image, Inference, InferenceTarget, LabelClass, Project } from '@domain/index';
+import type { InferenceId, LabelClassId } from '@domain/ids';
 import {
   listHistory,
   loadHistoryDetail,
@@ -20,6 +23,12 @@ interface Row {
   readonly inference: Inference;
   readonly images: number;
   readonly detections: number;
+}
+
+interface DetailRow {
+  readonly target: InferenceTarget;
+  readonly detections: Detection[];
+  readonly image: Image | undefined;
 }
 
 export function HistoryPanel({
@@ -37,6 +46,9 @@ export function HistoryPanel({
 }): React.ReactElement {
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
+  const [openId, setOpenId] = useState<InferenceId | null>(null);
+  const [detail, setDetail] = useState<DetailRow[]>([]);
+  const [classes, setClasses] = useState<ReadonlyMap<LabelClassId, LabelClass>>(new Map());
 
   const deps = {
     repositories: ports.repositories,
@@ -66,6 +78,29 @@ export function HistoryPanel({
     reload().catch(() => undefined);
   }, [reload, reloadToken]);
 
+  const open = (inference: Inference): void => {
+    if (openId === inference.inference_id) {
+      setOpenId(null);
+      return;
+    }
+    void (async () => {
+      const targets = await loadHistoryDetail(deps, inference.inference_id);
+      const withImages = await Promise.all(
+        targets.map(async (entry) => ({
+          ...entry,
+          image: await ports.repositories.images.get(entry.target.image_id),
+        })),
+      );
+      const model = await ports.repositories.models.get(inference.model_id);
+      if (model) {
+        const list = await ports.repositories.labelClasses.listByLabelSet(model.label_set_id);
+        setClasses(new Map(list.map((klass) => [klass.label_class_id, klass])));
+      }
+      setDetail(withImages);
+      setOpenId(inference.inference_id);
+    })();
+  };
+
   const togglePin = (inferenceId: InferenceId, pinned: boolean): void => {
     setPinned(deps, inferenceId, pinned)
       .then(() => reload())
@@ -84,11 +119,46 @@ export function HistoryPanel({
         {rows.map(({ inference, images, detections }) => (
           <li key={inference.inference_id}>
             <span>
+              <button type="button" onClick={() => open(inference)}>
+                {openId === inference.inference_id ? '−' : '+'}
+              </button>{' '}
               {new Date(inference.executed_at).toLocaleString('ja-JP')}
               <span className="muted">
                 {' '}
                 / 画像 {images} 枚 / 検出 {detections} 件 / conf {inference.conf_threshold}
+                {inference.pinned && ' / 固定'}
               </span>
+              {openId === inference.inference_id && (
+                <ul className="detection-list">
+                  {detail.map((entry) => (
+                    <li key={entry.target.target_id} style={{ display: 'block' }}>
+                      <span className="muted">
+                        {entry.image === undefined
+                          ? '画像は削除済み（履歴は残る）'
+                          : entry.image.deleted_at !== null
+                            ? `${entry.image.width}×${entry.image.height}（削除済み）`
+                            : `${entry.image.width}×${entry.image.height}`}
+                        {' / '}
+                        {entry.target.status}
+                        {entry.target.elapsed_ms !== null && ` / ${entry.target.elapsed_ms} ms`}
+                      </span>
+                      {'　'}
+                      {entry.detections.slice(0, 6).map((detection) => {
+                        const klass = classes.get(detection.label_class_id);
+                        return (
+                          <span key={detection.detection_id}>
+                            <span
+                              className="swatch"
+                              style={{ background: klass?.color ?? '#888' }}
+                            />
+                            {klass?.name ?? '?'} {(detection.confidence * 100).toFixed(0)}%{'　'}
+                          </span>
+                        );
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </span>
             <button
               type="button"

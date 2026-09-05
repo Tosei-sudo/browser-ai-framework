@@ -7,11 +7,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@ui/App';
 import '@ui/styles.css';
+import { registerServiceWorker } from './registerServiceWorker';
 
 const container = document.getElementById('root');
 if (!container) {
   throw new Error('#root が見つからない');
 }
+
+registerServiceWorker();
 
 createRoot(container).render(
   <StrictMode>

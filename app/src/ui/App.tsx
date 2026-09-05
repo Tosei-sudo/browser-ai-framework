@@ -20,6 +20,7 @@ import { InferencePanel } from './InferencePanel';
 import { HistoryPanel } from './HistoryPanel';
 import { ProjectPanel } from './ProjectPanel';
 import { LabelSetPanel } from './LabelSetPanel';
+import { ImagePanel } from './ImagePanel';
 
 type BootState =
   | { readonly kind: 'booting' }
@@ -198,6 +199,13 @@ export function App(): React.ReactElement {
                 readOnly={boot.startup.readOnly}
                 onChanged={refreshStorage}
                 reloadToken={historyToken}
+              />
+              <ImagePanel
+                ports={boot.ports}
+                project={project}
+                readOnly={boot.startup.readOnly}
+                reloadToken={historyToken}
+                onChanged={refreshStorage}
               />
               <HistoryPanel
                 ports={boot.ports}

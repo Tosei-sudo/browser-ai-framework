@@ -1,0 +1,119 @@
+/*
+ * 外部フォントは読み込まない（論点36）。OS 標準のフォントだけを使う。
+ */
+:root {
+  color-scheme: light dark;
+  --fg: #1a1a1a;
+  --bg: #ffffff;
+  --muted: #5c5c5c;
+  --border: #d4d4d4;
+  --warn-bg: #fff4e5;
+  --warn-border: #e0a24a;
+  --stop-bg: #fdecec;
+  --stop-border: #d05353;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #e8e8e8;
+    --bg: #1c1c1c;
+    --muted: #a0a0a0;
+    --border: #3a3a3a;
+    --warn-bg: #3a2e1c;
+    --warn-border: #a97a2f;
+    --stop-bg: #3a2020;
+    --stop-border: #a34848;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  line-height: 1.6;
+}
+
+main {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin-top: 2rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.25rem;
+}
+
+.lead {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.notice {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+
+.notice.warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-border);
+}
+
+.notice.stop {
+  background: var(--stop-bg);
+  border-color: var(--stop-border);
+}
+
+.notice p {
+  margin: 0.25rem 0;
+}
+
+dl.status {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+dl.status dt {
+  color: var(--muted);
+}
+
+dl.status dd {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+pre.log {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}

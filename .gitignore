@@ -5,3 +5,6 @@ poc/models/
 
 # PoC で取得したデータセット。取得手順は poc/README.md に記載する。
 poc/datasets/
+
+# R1 の変換成果物。tools/model-conversion で再生成できる。
+tools/model-conversion/out/

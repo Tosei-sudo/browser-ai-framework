@@ -2,3 +2,6 @@ node_modules/
 
 # PoC で取得したモデルの重み。取得手順は poc/README.md に記載する。
 poc/models/
+
+# PoC で取得したデータセット。取得手順は poc/README.md に記載する。
+poc/datasets/

@@ -1,0 +1,16 @@
+{
+  "name": "browser-ai-framework-poc",
+  "private": true,
+  "type": "module",
+  "description": "docs/design/05-technology-selection.md §7 の検証用。製品コードではない。",
+  "scripts": {
+    "serve": "node serve.mjs",
+    "serve:isolated": "node serve.mjs --isolated"
+  },
+  "dependencies": {
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow-models/mobilenet": "^2.1.1",
+    "@tensorflow/tfjs": "^4.22.0",
+    "onnxruntime-web": "^1.29.0"
+  }
+}

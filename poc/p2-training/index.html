@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>P2 / P3: ブラウザ内の転移学習</title>
+<style>
+  body { font-family: ui-monospace, "Consolas", monospace; font-size: 13px; line-height: 1.7;
+         margin: 24px; background: #14181f; color: #d7dce4; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  .sub { color: #7d8794; margin-bottom: 14px; font-size: 12px; }
+  #bar { color: #e5966a; min-height: 1.7em; margin-bottom: 8px; }
+  #out div { white-space: pre; }
+  .head { color: #93a0f2; margin-top: 14px; }
+  .ok { color: #57c2b5; }
+  .ng { color: #e88c86; }
+</style>
+</head>
+<body>
+  <h1>P2 / P3: ブラウザ内の転移学習が成立するか</h1>
+  <div class="sub">
+    MobileNet v2 を凍結したバックボーンとして使い、検出ヘッドだけを raccoon_dataset で学習する。
+    確かめるのは「学習ループが Worker 内で回るか」「1 epoch 何秒か」「メモリは持つか」「重みを取り出して保存できるか」。
+    検出精度そのものは問わない。
+  </div>
+  <div id="bar"></div>
+  <div id="out"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

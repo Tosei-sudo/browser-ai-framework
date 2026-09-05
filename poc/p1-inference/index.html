@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>P1 / P4: Worker 内の推論とバックエンド比較</title>
+<style>
+  body { font-family: ui-monospace, "Consolas", monospace; font-size: 13px; line-height: 1.7;
+         margin: 24px; background: #14181f; color: #d7dce4; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  .sub { color: #7d8794; margin-bottom: 14px; font-size: 12px; }
+  label { display: inline-block; margin-bottom: 16px; color: #93a0f2; cursor: pointer; }
+  #out div { white-space: pre; }
+  .head { color: #93a0f2; margin-top: 14px; }
+  .ok { color: #57c2b5; }
+  .ng { color: #e88c86; }
+</style>
+</head>
+<body>
+  <h1>P1 / P4: Worker 内の推論と、ランタイム・バックエンドの比較</h1>
+  <div class="sub">
+    ONNX Runtime Web（yolos-tiny）と TensorFlow.js（coco-ssd）を Worker 内で実行する。
+    ページを開くと合成画像で自動実行する。実写で確かめたい場合は画像を選ぶ。
+  </div>
+  <label>実写で試す: <input type="file" id="file" accept="image/*"></label>
+  <div id="out"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -114,6 +114,8 @@ OPFS
 
 `[image_id, revision_no]` は「その画像の最新版」を取るための索引。降順の先頭1件で取得できる。
 
+`LabelSet.project_id` は Base Model のクラス体系のみ null を許す（方針11）。`models` と同じく、**null のレコードは `by_project` に載らない。** Base Model のクラス体系は `Model.label_set_id` から直接引く。
+
 ### 4.3 データセット
 
 | ストア | keyPath | インデックス | 用途 |

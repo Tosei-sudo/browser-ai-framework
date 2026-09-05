@@ -40,9 +40,23 @@ src/
 | `npm run dev` | 開発サーバー |
 | `npm run build` | 型検査 + 本番ビルド（`dist/`） |
 | `npm run check:no-external` | 成果物の外部URL検査（要 `dist/`） |
+| `npm run models:import` | 変換済みモデルを `public/models/` へ取り込みカタログを作る |
 | `npm run preview` | ビルド結果の確認 |
+
+## モデルの取り込み
+
+`public/models/` は **git 管理外**。変換済みの重みは次の手順で持ち込む（論点36）。
+
+```sh
+# 1. 変換（Docker）。詳細は tools/model-conversion/README.md
+docker build -t browser-ai-r1 ../tools/model-conversion
+MSYS_NO_PATHCONV=1 docker run --rm -v "/c/…/tools/model-conversion/out:/out" browser-ai-r1 --out /out
+
+# 2. 配信物へ取り込む（シャードを1本にまとめ、catalog.json を作る）
+npm run models:import
+```
 
 ## 現状
 
-M0 の時点で動くのは土台の確認だけ。
-ストレージは M1、Base Model の読み込みは M2、推論は M3 で実装する。
+M2 まで実装済み。**ストレージ（IndexedDB / OPFS）と Base Model の配信・取り込みまで動く。**
+推論は M3 で実装する。

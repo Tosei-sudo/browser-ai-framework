@@ -107,11 +107,13 @@ kind : transfer_learning | fine_tune | convert | quantize | import
 
 ### 方針11. プロジェクト間の参照を許さない（論点18）
 
-`Project` は完全分離とし、あるプロジェクトの `Image` / `Dataset` / `Model` を別のプロジェクトから参照できない。例外は開発者提供 Base Model のみで、`project_id = null` のグローバル資産として全プロジェクトから参照できる。
+`Project` は完全分離とし、あるプロジェクトの `Image` / `Dataset` / `Model` を別のプロジェクトから参照できない。例外は**開発者提供 Base Model と、そのクラス体系**のみで、`project_id = null` のグローバル資産として全プロジェクトから参照できる。
 
 理由: 系譜がプロジェクト境界をまたぐと「どこまでエクスポートすれば系譜が完結するか」を定義できなくなる。方針17のエクスポート単位はこの分離を前提にしている。
 
 `Model.project_id` は Base Model のために nullable とするが、`origin = builtin` 以外で null を許さない。
+
+**`LabelSet.project_id` も同じ理由で nullable とする**（2026-09-05 追記）。Base Model はグローバル資産だが、その `label_set_id` が特定プロジェクトの `LabelSet` を指すと、他プロジェクトから見てプロジェクト間参照になってしまう。Base Model のクラス体系（COCO 80クラスなど）もグローバル資産として扱い、`project_id = null` とする。ユーザーが作るクラス体系は従来どおり必ずプロジェクトに属する。
 
 ### 方針12. 推論結果の由来を記録できるようにする（論点09）
 

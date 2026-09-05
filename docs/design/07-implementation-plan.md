@@ -96,8 +96,8 @@ CSP による実行時強制は保険として設計に残すが、MVP では入
 | 作業 | 備考 |
 | --- | --- |
 | YOLO 系の TF.js 形式への変換（R1） | **完了。** `tools/model-conversion/` で再生成できる（論点32・36） |
-| ビルド時に重みを `dist/` へ取り込む工程 | 論点36 |
-| カタログJSON の設計と `BaseModelCatalog` 実装 | 論点22 |
+| ビルド時に重みを `dist/` へ取り込む工程 | 論点36。`npm run models:import` で `public/models/` へ置く。**重みは git 管理外** |
+| カタログJSON の設計と `BaseModelCatalog` 実装 | 論点22。同一オリジンの `models/catalog.json` を `document.baseURI` 基準で読む |
 | `StartupService` のカタログ同期 | 方針18。メタは全件登録、重みは遅延取得 |
 | `ModelManager` / `ModelArtifact` の読み書き | 方針6 |
 

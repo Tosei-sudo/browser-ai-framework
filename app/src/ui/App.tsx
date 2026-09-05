@@ -12,6 +12,7 @@ import { MlWorkerClient } from '../worker/client';
 import { STORE_NAMES } from '@ports/stores';
 import { PersistenceNotice, ReadOnlyNotice, StorageStatus } from './StorageNotices';
 import { StorageSelfCheck } from './StorageSelfCheck';
+import { BaseModels } from './BaseModels';
 
 type BootState =
   | { readonly kind: 'booting' }
@@ -34,6 +35,7 @@ export function App(): React.ReactElement {
           unitOfWork: ports.unitOfWork,
           blobStore: ports.blobStore,
           storagePolicy: ports.storagePolicy,
+          catalog: ports.catalog,
           readOnlyReason: ports.readOnlyReason,
         });
         if (!cancelled) setBoot({ kind: 'ready', ports, startup });
@@ -64,6 +66,14 @@ export function App(): React.ReactElement {
     return () => client.terminate();
   }, []);
 
+  const refreshStorage = (): void => {
+    if (boot.kind !== 'ready') return;
+    boot.ports.storagePolicy
+      .estimate()
+      .then((storage) => setBoot({ ...boot, startup: { ...boot.startup, storage } }))
+      .catch(() => undefined);
+  };
+
   const requestPersistence = (): void => {
     if (boot.kind !== 'ready') return;
     setRequesting(true);
@@ -79,7 +89,7 @@ export function App(): React.ReactElement {
   return (
     <main>
       <h1>Browser AI Framework</h1>
-      <p className="lead">M1（ストレージ）。推論は M3 で実装する。</p>
+      <p className="lead">M2（Base Model の配信と読み込み）。推論は M3 で実装する。</p>
 
       {boot.kind === 'booting' && <p>起動中…</p>}
       {boot.kind === 'failed' && (
@@ -114,6 +124,11 @@ export function App(): React.ReactElement {
             </dd>
             <dt>中断した学習の回収</dt>
             <dd>{boot.startup.interruptedTrainings} 件</dd>
+            <dt>カタログ同期</dt>
+            <dd>
+              新規 {boot.startup.catalogSync.registered} 件 / 登録済み{' '}
+              {boot.startup.catalogSync.alreadyKnown} 件
+            </dd>
             <StorageStatus storage={boot.startup.storage} />
             <dt>ストア</dt>
             <dd>{STORE_NAMES.length} 件</dd>
@@ -126,6 +141,12 @@ export function App(): React.ReactElement {
             <dt>OPFS</dt>
             <dd>{'storage' in navigator && 'getDirectory' in navigator.storage ? '利用可能' : '利用不可'}</dd>
           </dl>
+
+          <BaseModels
+            ports={boot.ports}
+            readOnly={boot.startup.readOnly}
+            onStorageChanged={refreshStorage}
+          />
 
           <StorageSelfCheck
             ports={boot.ports}

@@ -60,6 +60,34 @@ def to_tfjs(frozen_pb: Path, outputs: list[str], target: Path) -> None:
     )
 
 
+def write_metadata(model_name: str, imgsz: int, target: Path, kind: str) -> None:
+    """アプリ側が必要とするメタを書き出す。
+
+    クラス名は .pt から取る。手で書き写すと必ずずれる。
+    input_spec は Model.input_spec（方針15）にそのまま対応する。
+    """
+    from ultralytics import YOLO
+
+    names = YOLO(model_name).model.names
+    metadata = {
+        "key": target.name,
+        "source": Path(model_name).stem,
+        "kind": kind,
+        "task_type": "object_detection",
+        "format": "tfjs_graph_model",
+        "input_spec": {
+            "size": {"width": imgsz, "height": imgsz},
+            # YOLO は 0〜1 に正規化するだけで、平均・分散の正規化は行わない。
+            "normalize": {"mean": [0.0, 0.0, 0.0], "std": [1.0, 1.0, 1.0]},
+            "letterbox": True,
+        },
+        "classes": [{"index": int(i), "name": str(n)} for i, n in sorted(names.items())],
+    }
+    (target / "metadata.json").write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
 def export_full(model_name: str, imgsz: int, opset: int, out_dir: Path) -> Path:
     """検出ヘッドまで含めた完成モデル。推論に使う。"""
     import tensorflow as tf
@@ -77,6 +105,7 @@ def export_full(model_name: str, imgsz: int, opset: int, out_dir: Path) -> Path:
 
     target = out_dir / f"{Path(model_name).stem}_tfjs"
     to_tfjs(frozen, outputs, target)
+    write_metadata(model_name, imgsz, target, kind="full")
     return target
 
 
@@ -143,6 +172,7 @@ def export_backbone(model_name: str, imgsz: int, opset: int, out_dir: Path) -> P
 
     target = out_dir / f"{Path(model_name).stem}_backbone_tfjs"
     to_tfjs(frozen, outputs, target)
+    write_metadata(model_name, imgsz, target, kind="backbone")
     return target
 
 

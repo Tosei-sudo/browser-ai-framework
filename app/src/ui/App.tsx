@@ -8,15 +8,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { runStartup, type StartupResult } from '../application/startupService';
 import type { InferenceRunner } from '../application/inferenceManager';
+import type { Project } from '@domain/index';
 import { createStoragePorts, type StoragePorts } from '@infrastructure/storage';
 import { createWorkerRunner } from '@infrastructure/tfjs/workerRunner';
 import { MlWorkerClient } from '../worker/client';
 import { STORE_NAMES } from '@ports/stores';
-import { PersistenceNotice, ReadOnlyNotice, StorageStatus } from './StorageNotices';
+import { PersistenceNotice, QuotaNotice, ReadOnlyNotice, StorageStatus } from './StorageNotices';
 import { StorageSelfCheck } from './StorageSelfCheck';
 import { BaseModels } from './BaseModels';
 import { InferencePanel } from './InferencePanel';
 import { HistoryPanel } from './HistoryPanel';
+import { ProjectPanel } from './ProjectPanel';
+import { LabelSetPanel } from './LabelSetPanel';
 
 type BootState =
   | { readonly kind: 'booting' }
@@ -32,6 +35,8 @@ export function App(): React.ReactElement {
   const [worker, setWorker] = useState<WorkerState>(null);
   const [requesting, setRequesting] = useState(false);
   const [historyToken, setHistoryToken] = useState(0);
+  // 選択中のプロジェクト。既定は起動時に用意した1件（論点37）。
+  const [project, setProject] = useState<Project | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +52,7 @@ export function App(): React.ReactElement {
         });
         if (cancelled) return;
         setPorts(created);
+        setProject(startup.project);
         setBoot({ kind: 'ready', ports: created, startup });
       })
       .catch((error: unknown) => {
@@ -107,7 +113,7 @@ export function App(): React.ReactElement {
   return (
     <main>
       <h1>Browser AI Framework</h1>
-      <p className="lead">M3（推論）。MVP のスコープはここまで（論点30）。</p>
+      <p className="lead">MVP（推論 + 履歴、論点30）。プロジェクト・クラス体系・入出力まで。</p>
 
       {boot.kind === 'booting' && <p>起動中…</p>}
       {boot.kind === 'failed' && (
@@ -128,6 +134,7 @@ export function App(): React.ReactElement {
             onRequest={requestPersistence}
             requesting={requesting}
           />
+          <QuotaNotice storage={boot.startup.storage} />
 
           <h2>起動処理</h2>
           <dl className="status">
@@ -158,17 +165,35 @@ export function App(): React.ReactElement {
             </dd>
           </dl>
 
+          {project && (
+            <ProjectPanel
+              ports={boot.ports}
+              current={project}
+              readOnly={boot.startup.readOnly}
+              onSelect={setProject}
+              onChanged={refreshStorage}
+            />
+          )}
+
           <BaseModels
             ports={boot.ports}
             readOnly={boot.startup.readOnly}
             onStorageChanged={refreshStorage}
           />
 
-          {runner && (
+          {project && (
+            <LabelSetPanel
+              ports={boot.ports}
+              project={project}
+              readOnly={boot.startup.readOnly}
+            />
+          )}
+
+          {runner && project && (
             <>
               <InferencePanel
                 ports={boot.ports}
-                project={boot.startup.project}
+                project={project}
                 runner={runner}
                 readOnly={boot.startup.readOnly}
                 onChanged={refreshStorage}
@@ -176,7 +201,7 @@ export function App(): React.ReactElement {
               />
               <HistoryPanel
                 ports={boot.ports}
-                project={boot.startup.project}
+                project={project}
                 runner={runner}
                 readOnly={boot.startup.readOnly}
                 reloadToken={historyToken}
@@ -184,11 +209,13 @@ export function App(): React.ReactElement {
             </>
           )}
 
-          <StorageSelfCheck
-            ports={boot.ports}
-            project={boot.startup.project}
-            readOnly={boot.startup.readOnly}
-          />
+          {project && (
+            <StorageSelfCheck
+              ports={boot.ports}
+              project={project}
+              readOnly={boot.startup.readOnly}
+            />
+          )}
         </>
       )}
     </main>

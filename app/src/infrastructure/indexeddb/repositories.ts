@@ -50,6 +50,12 @@ export function createRepositories(provider: StoreProvider): Repositories {
           NOT_DELETED,
         ]);
       },
+      listByProject(projectId) {
+        return listByIndex(provider, 'images', 'by_project', imageCodec, projectId);
+      },
+      listByContentHash(hash) {
+        return listByIndex(provider, 'images', 'by_content_hash', imageCodec, hash);
+      },
       async findByContentHash(projectId, hash) {
         const images = await listByIndex(provider, 'images', 'by_content_hash', imageCodec, hash);
         // 重複排除はプロジェクト内で行う。プロジェクト間の参照は許さない（方針11）。

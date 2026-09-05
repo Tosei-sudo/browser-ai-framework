@@ -73,6 +73,10 @@ export interface ProjectRepository extends Repository<Project, ProjectId> {
 export interface ImageRepository extends Repository<Image, ImageId> {
   /** `[project_id, deleted_at]`。削除済みを除いた一覧 */
   listAlive(projectId: ProjectId): Promise<Image[]>;
+  /** `by_project`。論理削除済みも含む。プロジェクト削除で使う */
+  listByProject(projectId: ProjectId): Promise<Image[]>;
+  /** `by_content_hash`。プロジェクトをまたいで同じ実体を指す画像を探す（04 §7） */
+  listByContentHash(hash: ContentHash): Promise<Image[]>;
   /** `by_content_hash`。重複排除に使う（方針16） */
   findByContentHash(projectId: ProjectId, hash: ContentHash): Promise<Image | undefined>;
 }

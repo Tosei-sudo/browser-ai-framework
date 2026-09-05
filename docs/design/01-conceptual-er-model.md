@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 | --- | --- |
-| ステータス | 一部合意（設計方針6件が確定、構造の一部は未確定） |
+| ステータス | 一部合意（設計方針10件が確定、属性レベルの一部が未確定） |
 | 対象 | `order.txt` §12「次の作業」 |
 | 最終更新 | 2026-09-05 |
 | 関連 | [02-open-decisions.md](./02-open-decisions.md) |
@@ -20,7 +20,7 @@
 
 ## 2. 合意済みの設計方針
 
-`order.txt` の原案に対し、以下6件の変更を合意した。
+`order.txt` の原案に対し、以下10件の変更を合意した。
 
 ### 方針1. クラス体系を独立エンティティとして管理する（論点01）
 
@@ -66,6 +66,50 @@
 
 理由: 系譜を辿れるようにするため全世代のモデルを保持すると、1世代あたり数十MBの重みがブラウザストレージを圧迫する。系譜（追跡性）と重み（実行可能性）は別の寿命を持つべき。
 
+### 方針7. 系譜を ModelDerivation として独立させる（論点07）
+
+親子関係を `Model` の自己参照や `Training` からの導出で表現せず、`ModelDerivation` を独立エンティティとして持つ。`kind` により派生の種別を区別する。
+
+```text
+kind : transfer_learning | fine_tune | convert | quantize | import
+```
+
+理由:
+
+- 学習を伴わない派生（インポート・形式変換・量子化）を同じ系譜に載せられる。`Training` からの導出だけではこれらを表現できない。
+- 将来のモデル統合（複数親）に構造を変えずに対応できる。
+- 祖先を辿るクエリが `Training` を経由せずに済む。
+
+`Training` による派生の場合は `ModelDerivation.training_id` に学習処理を紐づけ、系譜と学習履歴の両方から辿れるようにする。
+
+### 方針8. ModelVersion を持たない（論点08）
+
+`Model` を不変ノードとして扱い、系譜そのものをバージョン履歴とする。`ModelVersion` エンティティは作らない。
+
+理由: 転移学習の出力は「同じモデルの新バージョン」ではなく「別のモデル」である。version 番号と lineage を同時に管理すると必ず矛盾する — 例えば Model B から2本派生したとき、両方が v2 になる。
+
+系列名や世代番号の表示が必要になった場合は `ModelFamily` の追加を再検討するが、現時点では導入しない。
+
+### 方針9. 推論を3階層にする（論点11）
+
+`Inference`（実行1回）→ `InferenceTarget`（画像1枚）→ `Detection`（検出1件）の3階層とする。
+
+理由: 複数画像の一括推論に構造を変えずに対応できる。1画像だけの場合も `InferenceTarget` が1件になるだけでコストはほぼない。画像ごとの成否（`status`）と処理時間（`elapsed_ms`）を持つ場所ができる。
+
+### 方針10. Project を導入する（論点16）
+
+`Project` を導入し、一覧のスコープ分割・一括エクスポート・用途ごとのクラス体系分離を可能にする。
+
+`project_id` を持たせる範囲は以下とする。
+
+| 区分 | エンティティ | 理由 |
+| --- | --- | --- |
+| `project_id` を持つ | `Image`, `LabelSet`, `Dataset`, `Model`, `Training`, `Evaluation`, `Inference` | ユーザーが一覧で直接扱うトップレベル資産 |
+| 持たない（親から辿れる） | `AnnotationSet`, `AnnotationObject`, `DatasetVersion`, `DatasetItem`, `TrainingMetric`, `EvaluationMetric`, `InferenceTarget`, `Detection`, `ModelDerivation` | 親エンティティのスコープに従う |
+| 持たない（横断共有） | `ImageBlob`, `ModelArtifact` | `content_hash` / `checksum` による重複排除の対象であり、プロジェクトをまたいで共有されうる |
+
+この分類のうち、開発者提供 Base Model の扱いとプロジェクト間参照の可否は未確定。論点18で確定させる。
+
 ## 3. エンティティ一覧
 
 ### A. 画像・アノテーション資産
@@ -90,8 +134,7 @@
 | --- | --- | --- | --- |
 | `Model` | 合意済 | 系譜上の1ノード。メタのみ、永久保存 | 不変 |
 | `ModelArtifact` | 合意済 | 重み本体。破棄しても系譜は残る | 不変・削除可 |
-| `ModelDerivation` | 暫定（論点07） | 派生関係。学習以外の派生も表現 | 不変 |
-| `ModelFamily` | 暫定（論点08） | 系列の表示名・世代番号（表示専用） | 可変 |
+| `ModelDerivation` | 合意済 | 派生関係。学習以外の派生も表現 | 不変 |
 | `Training` | 合意済 | 学習処理1回。学習条件を内包 | 進行中は可変 → 完了後は不変 |
 | `TrainingMetric` | 合意済 | epoch 単位の学習曲線 | 不変・追記 |
 
@@ -102,21 +145,22 @@
 | `Evaluation` | 合意済 | モデル × テストセットの性能測定 | 不変 |
 | `EvaluationMetric` | 合意済 | 全体 / クラス別のスコア | 不変 |
 | `Inference` | 合意済 | 推論実行1回 | 不変 |
-| `InferenceTarget` | 暫定（論点11） | 実行 × 画像1枚 | 不変 |
+| `InferenceTarget` | 合意済 | 実行 × 画像1枚 | 不変 |
 | `Detection` | 合意済 | 検出1件 | 不変 |
 
 ### 横断
 
-| エンティティ | ステータス | 役割 |
-| --- | --- | --- |
-| `Project` | 暫定（論点16） | スコープ分割・一括エクスポート単位 |
+| エンティティ | ステータス | 役割 | ライフサイクル |
+| --- | --- | --- | --- |
+| `Project` | 合意済 | スコープ分割・一括エクスポート単位 | 可変 |
 
 ### 採用しないもの
 
 | 名称 | 判断 | 理由 |
 | --- | --- | --- |
 | `TrainingResult` | 不採用（合意済） | 方針3のとおり3つに分解した |
-| `ModelVersion` | 不採用を提案（論点08で審議中） | 系譜との二重管理になる |
+| `ModelVersion` | 不採用（合意済） | 系譜との二重管理になる。方針8を参照 |
+| `ModelFamily` | 現時点では不採用 | 方針8の付随判断。系列表示が必要になった時点で再検討する |
 | `User` | 不採用 | ブラウザ完結のため。開発者提供／ユーザー作成の区別は `Model.origin` で表す |
 
 ## 4. エンティティ定義
@@ -131,6 +175,7 @@
 
 ```text
 image_id
+project_id
 blob_id
 width / height
 content_hash
@@ -183,6 +228,7 @@ attributes
 
 ```text
 label_set_id
+project_id
 name
 class_count
 derived_from_label_set_id
@@ -206,6 +252,7 @@ color
 
 ```text
 dataset_id
+project_id
 name
 label_set_id
 description
@@ -245,6 +292,7 @@ split                 : train | val | test
 
 ```text
 model_id
+project_id           : builtin モデルの扱いは論点18
 name
 origin               : builtin | user_trained | imported
 task_type
@@ -267,12 +315,28 @@ data
 stored_at
 ```
 
+#### ModelDerivation
+
+モデルの親子関係。`kind` により派生の種別を区別し、学習を伴わない派生も同じ系譜に載せる。
+
+```text
+derivation_id
+parent_model_id
+child_model_id
+kind                : transfer_learning | fine_tune | convert | quantize | import
+training_id         : nullable（学習由来の場合のみ）
+created_at
+```
+
+通常は子から見た親が1件だが、将来のモデル統合に備えて多重度は N — N とする（[§5](#5-リレーション)）。
+
 #### Training
 
 学習処理1回。source model・dataset version・学習条件・実行状態を保持する。
 
 ```text
 training_id
+project_id
 source_model_id
 dataset_version_id
 output_model_id       : nullable（論点13）
@@ -305,6 +369,7 @@ logged_at
 
 ```text
 evaluation_id
+project_id
 model_id
 dataset_version_id
 split_used
@@ -330,11 +395,25 @@ value
 
 ```text
 inference_id
+project_id
 model_id
 conf_threshold / iou_threshold / max_detections
 runtime_info
 executed_at
 pinned                ← 論点10
+```
+
+#### InferenceTarget
+
+実行 × 画像1枚。複数画像をまとめて処理する場合の受け皿で、画像ごとの成否と処理時間もここで持つ。
+
+```text
+target_id
+inference_id
+image_id
+status                : succeeded | failed | skipped
+elapsed_ms
+error_message
 ```
 
 #### Detection
@@ -350,10 +429,24 @@ bbox                  : x, y, w, h
 rank
 ```
 
+### 横断
+
+#### Project
+
+トップレベル資産のスコープ単位。一覧表示・一括エクスポート・クラス体系の分離をこの単位で行う。
+
+```text
+project_id
+name
+description
+created_at / updated_at
+```
+
 ## 5. リレーション
 
 | 親 | 多重度 | 子 | 設計意図 |
 | --- | --- | --- | --- |
+| `Project` | 1 — N | `Image` / `LabelSet` / `Dataset` / `Model` / `Training` / `Evaluation` / `Inference` | トップレベル資産のスコープ単位（方針10） |
 | `LabelSet` | 1 — N | `LabelClass` | クラス名とモデル出力 index の対応をここで固定 |
 | `Image` | 1 — N | `AnnotationSet` | 1画像に複数版。最新版だけでなく履歴を保持 |
 | `AnnotationSet` | 1 — N | `AnnotationObject` | 版の中に矩形が複数。0個（背景画像）も有効 |
@@ -367,10 +460,11 @@ rank
 | `Training` | 1 — 0..1 | `Model`(output) | 失敗・中断した学習は出力モデルを持たない（論点13） |
 | `Training` | 1 — N | `TrainingMetric` | epoch 単位の学習曲線 |
 | `Model` | 1 — 0..1 | `ModelArtifact` | 重みを破棄しても系譜ノードは残る |
-| `Model` | N — N | `Model`（`ModelDerivation` 経由） | 親子。表現方法は論点07 |
+| `Model` | N — N | `Model`（`ModelDerivation` 経由） | 親子。通常は子から見て親1、将来の統合に備えて N — N（方針7） |
+| `Training` | 1 — 0..1 | `ModelDerivation` | 学習由来の派生を系譜と紐づける |
 | `Model` | N — 1 | `LabelSet` | モデルが出力できるクラス集合 |
 | `Model` | 1 — N | `Inference` | 推論履歴はモデルに紐づく |
-| `Inference` | 1 — N | `InferenceTarget` | バッチ実行と画像単位の成否を表現（論点11） |
+| `Inference` | 1 — N | `InferenceTarget` | バッチ実行と画像単位の成否を表現（方針9） |
 | `Image` | 1 — N | `InferenceTarget` | 同じ画像に別モデルで何度でも推論できる |
 | `InferenceTarget` | 1 — N | `Detection` | 検出0件も「検出されなかった」という結果 |
 | `Detection` | N — 1 | `LabelClass` | 推論結果とアノテーションが同じクラス語彙を使う |
@@ -382,6 +476,14 @@ rank
 
 ```mermaid
 erDiagram
+  PROJECT         ||--o{ IMAGE             : "所有する"
+  PROJECT         ||--o{ LABEL_SET         : "所有する"
+  PROJECT         ||--o{ DATASET           : "所有する"
+  PROJECT         ||--o{ MODEL             : "所有する"
+  PROJECT         ||--o{ TRAINING          : "所有する"
+  PROJECT         ||--o{ EVALUATION        : "所有する"
+  PROJECT         ||--o{ INFERENCE         : "所有する"
+
   LABEL_SET       ||--o{ LABEL_CLASS       : "定義する"
   IMAGE           ||--|| IMAGE_BLOB        : "実体"
   IMAGE           ||--o{ ANNOTATION_SET    : "版を持つ"
@@ -403,6 +505,7 @@ erDiagram
   MODEL           ||--o{ TRAINING          : "source として"
   DATASET_VERSION ||--o{ TRAINING          : "学習に使用"
   TRAINING        ||--o| MODEL             : "output を生成"
+  TRAINING        ||--o| MODEL_DERIVATION  : "派生を記録"
   TRAINING        ||--o{ TRAINING_METRIC   : "epoch ログ"
 
   MODEL           ||--o{ EVALUATION        : "評価される"
@@ -417,14 +520,14 @@ erDiagram
   INFERENCE_TARGET ||--o| ANNOTATION_SET   : "下書きに昇格"
 ```
 
-この図のうち、以下は未確定を含む。
+エンティティの構成は確定した。残る未確定は以下の2点のみで、いずれも属性レベルまたは適用範囲の問題であり、エンティティの追加・削除は伴わない。
 
 | 図中の要素 | 依存する論点 |
 | --- | --- |
-| `MODEL_DERIVATION` の存在そのもの | 論点07 |
-| `INFERENCE_TARGET` の存在そのもの | 論点11 |
-| `INFERENCE_TARGET ||--o| ANNOTATION_SET` | 論点09 |
-| `PROJECT`（図には未記載） | 論点16 |
+| `INFERENCE_TARGET ||--o| ANNOTATION_SET`（推論結果の下書き昇格） | 論点09 |
+| `IMAGE ||--|| IMAGE_BLOB`（実体分離の要否） | 論点15 |
+
+`PROJECT` の所有関係は方針10の分類に従う。`ImageBlob` / `ModelArtifact` はプロジェクト横断で共有されうるため `PROJECT` に紐づけない。Base Model（`origin = builtin`）をどのプロジェクトに置くかは論点18で確定させる。
 
 ## 7. モデル系譜の追跡経路
 
@@ -447,8 +550,8 @@ flowchart LR
   DV2 -->|dataset_version| T2
   T2 -->|output_model| C
 
-  A -.->|"ModelDerivation (論点07)"| B
-  B -.->|"ModelDerivation (論点07)"| C
+  A -.->|"ModelDerivation&#10;kind: transfer_learning"| B
+  B -.->|"ModelDerivation&#10;kind: transfer_learning"| C
 ```
 
 実線が実際の処理の流れ、点線が系譜の直接参照。この構造により以下が追跡できる。
@@ -459,15 +562,22 @@ flowchart LR
 - **学習がどう進んだか** — `TrainingMetric`。
 - **どれくらいの性能か** — `Evaluation` / `EvaluationMetric`。
 
-系譜を `Training` からの導出のみで表現するか、`ModelDerivation` を独立させるかは論点07で審議中。
+`ModelDerivation` は学習由来の派生では `training_id` を持つため、系譜（点線）から学習履歴（実線）へ直接辿れる。インポートや形式変換による派生は `training_id` を持たず、`kind` で区別される。
 
 ## 8. 未確定事項
 
-11件の未決事項を [02-open-decisions.md](./02-open-decisions.md) で管理する。うち以下はER構造そのものが変わるため、優先して合意したい。
+8件の未決事項を [02-open-decisions.md](./02-open-decisions.md) で管理する。ER構造を変える論点（07 / 08 / 11 / 16）は合意済みのため、残るものはいずれも属性レベル、機能スコープ、または適用範囲の判断となる。
 
-- 論点07 — 系譜の表現方法
-- 論点08 — `ModelVersion` の要否
-- 論点16 — `Project` / Workspace の導入可否
+| 論点 | 内容 | 優先度 |
+| --- | --- | --- |
+| 18 | `Project` のスコープ境界（Base Model の所属、プロジェクト間参照） | 高 |
+| 09 | 推論結果のアノテーション下書き化 | 中 |
+| 13 | 失敗・中断した Training の扱い | 中 |
+| 14 | 開発者提供 Base Model の同一性と更新 | 中 |
+| 15 | 削除の扱い（`ImageBlob` の分離を含む） | 中 |
+| 10 | 推論履歴の保持ポリシー | 中 |
+| 12 | 前処理・実行パラメータの配置 | 低 |
+| 17 | ID採番とポータビリティ | 低 |
 
 ## 9. 次の作業
 

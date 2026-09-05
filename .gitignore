@@ -8,3 +8,6 @@ poc/datasets/
 
 # R1 の変換成果物。tools/model-conversion で再生成できる。
 tools/model-conversion/out/
+
+# 配信物へ取り込んだモデルの重み（論点36）。app/scripts/import-models.mjs で作り直せる。
+app/public/models/

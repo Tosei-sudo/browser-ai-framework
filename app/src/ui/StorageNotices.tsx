@@ -5,6 +5,7 @@
  * とくに `persist()` の拒否は初期状態として起こる（06 §3.4）。
  */
 import type { StartupResult } from '../application/startupService';
+import { evaluateQuota, WARN_RATIO } from '../application/storageQuotaService';
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 B';
@@ -53,6 +54,33 @@ export function PersistenceNotice({
       <button type="button" onClick={onRequest} disabled={requesting}>
         {requesting ? '要求中…' : '永続化を要求する'}
       </button>
+    </div>
+  );
+}
+
+/**
+ * 容量の警告（論点23 / 持ち越し事項#11）。
+ * 80% で警告し、95% を超えると新規の取り込みが止まる。
+ */
+export function QuotaNotice({
+  storage,
+}: {
+  storage: StartupResult['storage'];
+}): React.ReactElement | null {
+  const quota = evaluateQuota(storage);
+  if (quota.level === 'ok') return null;
+  return (
+    <div className={quota.level === 'blocked' ? 'notice stop' : 'notice warn'} role='alert'>
+      <p>
+        <strong>
+          保存領域の使用率が {(quota.ratio * 100).toFixed(0)}% です
+          {quota.level === 'blocked' && '（新規の取り込みを停止しました）'}。
+        </strong>
+      </p>
+      <p>
+        不要な重みを破棄するか、プロジェクトをエクスポートしてから削除してください。
+        {(WARN_RATIO * 100).toFixed(0)}% を超えると警告し、95% を超えると取り込みを止めます。
+      </p>
     </div>
   );
 }

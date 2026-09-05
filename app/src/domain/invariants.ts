@@ -169,3 +169,19 @@ function isDeepEqual(a: unknown, b: unknown): boolean {
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
   return JSON.stringify(a) === JSON.stringify(b);
 }
+
+/**
+ * 方針11: `LabelSet.project_id` が null なのは Base Model のクラス体系だけ。
+ *
+ * グローバルな Base Model がプロジェクト内の体系を指すと、他プロジェクトから見て
+ * プロジェクト間参照になる。そのため Base Model のクラス体系もグローバルにする。
+ */
+export function assertLabelSetProjectScope(labelSet: LabelSet, usedByBuiltinModel: boolean): void {
+  if (labelSet.project_id === null) {
+    invariant(
+      usedByBuiltinModel,
+      'label_set.project_scope',
+      `project_id が null のクラス体系は Base Model 専用: ${labelSet.label_set_id}`,
+    );
+  }
+}

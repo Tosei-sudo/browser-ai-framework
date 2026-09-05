@@ -5,13 +5,14 @@
  *  1. 既定プロジェクトの生成（論点37）
  *  2. 孤児ファイルの回収（論点27 / 04 §6.2）
  *  3. 中断した Training の回収（論点21）
- *
- * Base Model カタログの同期（方針18）は M2 で足す。
+ *  4. Base Model カタログの同期（方針18）
  */
 import { newId, now, type ProjectId } from '@domain/ids';
 import type { Project } from '@domain/index';
+import type { BaseModelCatalog } from '@ports/baseModelCatalog';
 import type { BlobStore, StorageEstimate, StoragePolicy } from '@ports/blobStore';
 import type { Repositories, UnitOfWork } from '@ports/repository';
+import { syncCatalog, type CatalogSyncResult } from './modelManager';
 
 /** 既定プロジェクトの名前。MVP では利用者に見せない（論点37）。 */
 const DEFAULT_PROJECT_NAME = '既定のプロジェクト';
@@ -21,6 +22,7 @@ export interface StartupDependencies {
   readonly unitOfWork: UnitOfWork;
   readonly blobStore: BlobStore;
   readonly storagePolicy: StoragePolicy;
+  readonly catalog: BaseModelCatalog;
   /** 移行に失敗して読み取り専用で開いた場合の理由（04 §8.3） */
   readonly readOnlyReason: string | null;
 }
@@ -32,6 +34,8 @@ export interface StartupResult {
   readonly orphansCollected: { readonly images: number; readonly models: number };
   /** 中断として回収した学習の件数（論点21） */
   readonly interruptedTrainings: number;
+  /** Base Model カタログの同期結果（方針18） */
+  readonly catalogSync: CatalogSyncResult;
   readonly readOnly: boolean;
   readonly readOnlyReason: string | null;
 }
@@ -147,6 +151,16 @@ export async function runStartup(deps: StartupDependencies): Promise<StartupResu
     deps.unitOfWork,
     readOnly,
   );
+  // Base Model のメタを全件登録する。重みはここでは取りに行かない（方針18）。
+  const catalogSync = readOnly
+    ? { registered: 0, alreadyKnown: 0 }
+    : await syncCatalog({
+        repositories: deps.repositories,
+        unitOfWork: deps.unitOfWork,
+        blobStore: deps.blobStore,
+        catalog: deps.catalog,
+      });
+
   const storage = await deps.storagePolicy.estimate();
 
   return {
@@ -154,6 +168,7 @@ export async function runStartup(deps: StartupDependencies): Promise<StartupResu
     storage,
     orphansCollected,
     interruptedTrainings,
+    catalogSync,
     readOnly,
     readOnlyReason: deps.readOnlyReason,
   };

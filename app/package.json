@@ -8,9 +8,14 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit false --emitDeclarationOnly false",
-    "check:no-external": "node scripts/check-no-external.mjs"
+    "check:no-external": "node scripts/check-no-external.mjs",
+    "models:import": "node scripts/import-models.mjs"
   },
   "dependencies": {
+    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgpu": "^4.22.0",
+    "@tensorflow/tfjs-converter": "^4.22.0",
+    "@tensorflow/tfjs-core": "^4.22.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

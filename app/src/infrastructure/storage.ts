@@ -4,6 +4,7 @@
  * ここだけが IndexedDB / OPFS を知っている。Application Layer には
  * `Repositories` / `UnitOfWork` / `BlobStore` / `StoragePolicy` として渡す。
  */
+import type { BaseModelCatalog } from '@ports/baseModelCatalog';
 import type { BlobStore, StoragePolicy } from '@ports/blobStore';
 import type { Repositories, UnitOfWork } from '@ports/repository';
 import { openDatabase } from './indexeddb/open';
@@ -12,12 +13,14 @@ import { createUnitOfWork } from './indexeddb/unitOfWork';
 import { directProvider } from './indexeddb/support';
 import { createOpfsBlobStore } from './opfs/blobStore';
 import { createStoragePolicy } from './opfs/storagePolicy';
+import { createStaticCatalog } from './catalog/staticCatalog';
 
 export interface StoragePorts {
   readonly repositories: Repositories;
   readonly unitOfWork: UnitOfWork;
   readonly blobStore: BlobStore;
   readonly storagePolicy: StoragePolicy;
+  readonly catalog: BaseModelCatalog;
   /** 読み取り専用で開いた理由。null なら通常モード（04 §8.3） */
   readonly readOnlyReason: string | null;
 }
@@ -30,6 +33,7 @@ export async function createStoragePorts(): Promise<StoragePorts> {
     unitOfWork: createUnitOfWork(state.db, readOnlyReason !== null),
     blobStore: createOpfsBlobStore(),
     storagePolicy: createStoragePolicy(),
+    catalog: createStaticCatalog(),
     readOnlyReason,
   };
 }

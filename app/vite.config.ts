@@ -4,8 +4,14 @@ import react from '@vitejs/plugin-react';
 
 // 閉域環境（論点36）で任意のパスに置いても動くよう、生成される参照はすべて相対にする。
 // 外部ホストからの取得は行わない。CDN・Webフォント・外部APIを追加しないこと（論点39）。
+// ビルドごとに変わる版。Service Worker のキャッシュを切り替えるのに使う。
+const buildId = new Date().toISOString().replace(/[:.]/g, '-');
+
 export default defineConfig({
   base: './',
+  define: {
+    __BUILD_ID__: JSON.stringify(buildId),
+  },
   plugins: [react()],
   resolve: {
     alias: {

@@ -40,9 +40,29 @@ src/
 | `npm run dev` | 開発サーバー |
 | `npm run build` | 型検査 + 本番ビルド（`dist/`） |
 | `npm run check:no-external` | 成果物の外部URL検査（要 `dist/`） |
+| `npm run models:import` | 変換済みモデルを `public/models/` へ取り込みカタログを作る |
 | `npm run preview` | ビルド結果の確認 |
+
+## モデルの取り込み
+
+`public/models/` は **git 管理外**。変換済みの重みは次の手順で持ち込む（論点36）。
+
+```sh
+# 1. 変換（Docker）。詳細は tools/model-conversion/README.md
+docker build -t browser-ai-r1 ../tools/model-conversion
+MSYS_NO_PATHCONV=1 docker run --rm -v "/c/…/tools/model-conversion/out:/out" browser-ai-r1 --out /out
+
+# 2. 配信物へ取り込む（シャードを1本にまとめ、catalog.json を作る）
+npm run models:import
+```
 
 ## 現状
 
-M0 の時点で動くのは土台の確認だけ。
-ストレージは M1、Base Model の読み込みは M2、推論は M3 で実装する。
+**M4 まで実装済み。MVP（推論 + 履歴、論点30）は完成。**
+
+プロジェクトの作成・切替・削除、クラス体系の複製と編集、画像の取り込み（重複排除つき）、
+複数枚の一括推論、結果の描画、履歴の一覧と詳細、エクスポート / インポートまで動く。
+アプリ本体は Service Worker がキャッシュし、配信元に届かなくても起動する（論点24）。
+実測（Chrome / WebGPU / 650×417）は前処理・後処理込みで **70 ms**（初回のみカーネル初期化を含み 2.2 秒）。
+
+アノテーション・データセット・転移学習・評価は M5 以降（MVP スコープ外）。

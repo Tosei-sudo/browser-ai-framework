@@ -49,3 +49,33 @@ export function now(): IsoDateTime {
 export function toIsoDateTime(value: Date | string): IsoDateTime {
   return (typeof value === 'string' ? new Date(value) : value).toISOString() as IsoDateTime;
 }
+
+/**
+ * 決まった文字列から毎回同じ ID を作る（UUID v5 相当）。
+ *
+ * Base Model のカタログ同期で使う。カタログの `key` から ID を導けば、
+ * 起動のたびに同じレコードへ収束し、重複登録が起きない（方針18）。
+ * 形式は UUID に揃える（方針17）。
+ */
+export async function stableId<T extends string>(namespace: string, key: string): Promise<Branded<T>> {
+  const data = new TextEncoder().encode(`${namespace}:${key}`);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+  const bytes = digest.slice(0, 16);
+  // UUID の版（5）と variant を立てる。
+  bytes[6] = ((bytes[6] as number) & 0x0f) | 0x50;
+  bytes[8] = ((bytes[8] as number) & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join('-') as Branded<T>;
+}
+
+/** バイト列の SHA-256（16進）。重みの検証と重複排除に使う。 */
+export async function sha256Hex(data: ArrayBuffer): Promise<ContentHash> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('') as ContentHash;
+}
